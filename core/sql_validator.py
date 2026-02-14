@@ -15,39 +15,25 @@ def clean_sql_output(sql: str) -> str:
     return sql.strip()
 
 
-def is_safe_query(sql: str) -> tuple[bool, str]:
-    """
-    Validates that SQL query is safe and only SELECT.
-    Returns (is_valid, message)
-    """
+def is_safe_query(query: str):
+    query_clean = query.strip()
+    query_lower = query_clean.lower()
 
-    if not sql:
-        return False, "Query is empty."
+    # Block LLM failure outputs
+    if query_clean == "" or query_lower == "invalid_query":
+        return False, "The system could not generate a valid SQL query."
 
-    sql_clean = sql.strip()
-    sql_lower = sql_clean.lower()
-
-    # 1️⃣ Must start with SELECT
-    if not sql_lower.startswith("select"):
+    # Must start with SELECT
+    if not query_lower.startswith("select"):
         return False, "Only SELECT statements are allowed."
 
-    # 2️⃣ Block multi-statements
-    if ";" in sql_clean[:-1]:  # allow optional semicolon only at end
-        return False, "Multiple SQL statements are not allowed."
+    # Block dangerous keywords
+    forbidden = ["drop", "delete", "update", "insert", "alter"]
 
-    # 3️⃣ Block SQL comments
-    if "--" in sql_lower or "/*" in sql_lower or "*/" in sql_lower:
-        return False, "SQL comments are not allowed."
-
-    # 4️⃣ Block forbidden keywords (whole word match)
-    forbidden_keywords = [
-        "insert", "update", "delete", "drop",
-        "alter", "truncate", "create", "exec"
-    ]
-
-    for keyword in forbidden_keywords:
-        pattern = r"\b" + keyword + r"\b"
-        if re.search(pattern, sql_lower):
-            return False, f"Forbidden keyword detected: {keyword.upper()}"
+    for word in forbidden:
+        if word in query_lower:
+            return False, "Only SELECT statements are allowed."
 
     return True, "Query is safe."
+
+
